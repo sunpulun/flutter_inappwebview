@@ -37,6 +37,7 @@ import android.widget.LinearLayout;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
@@ -794,10 +795,40 @@ public class InAppWebViewChromeClient extends WebChromeClient implements PluginR
   @TargetApi(Build.VERSION_CODES.LOLLIPOP)
   @Override
   public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
+//    String[] acceptTypes = fileChooserParams.getAcceptTypes();
+//    boolean allowMultiple = fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE;
+//    Intent intent = fileChooserParams.createIntent();
+//    return startPhotoPickerIntent(filePathCallback, intent, acceptTypes, allowMultiple);
     String[] acceptTypes = fileChooserParams.getAcceptTypes();
     boolean allowMultiple = fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE;
     Intent intent = fileChooserParams.createIntent();
+
+    String url = webView.getUrl();
+    Uri uri = Uri.parse(url);
+    String path = uri.getPath();
+
+    if (acceptsImages(acceptTypes) && fileChooserParams.isCaptureEnabled()){
+      return startDirectCameraIntent(filePathCallback);
+    }
     return startPhotoPickerIntent(filePathCallback, intent, acceptTypes, allowMultiple);
+  }
+
+  @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+  public boolean startDirectCameraIntent(final ValueCallback<Uri[]> callback) {
+    InAppWebViewFlutterPlugin.filePathCallback = callback;
+    if (!needsCameraPermission()) {
+      Intent photoSelectionIntent =  getPhotoIntent();
+      Activity activity = inAppBrowserDelegate != null ? inAppBrowserDelegate.getActivity() : plugin.activity;
+      if (photoSelectionIntent.resolveActivity(activity.getPackageManager()) != null) {
+        activity.startActivityForResult(photoSelectionIntent, PICKER);
+      } else {
+        Log.d(LOG_TAG, "there is no Activity to handle this Intent");
+      }
+    } else  {
+      Activity activity = inAppBrowserDelegate != null ? inAppBrowserDelegate.getActivity() : plugin.activity;
+      ActivityCompat.requestPermissions(activity, new String[]{Manifest.permission.CAMERA},0);
+    }
+    return true;
   }
 
   @Override
